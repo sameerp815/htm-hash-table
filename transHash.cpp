@@ -118,7 +118,8 @@ void insertTrans(HashTable *table, int key, int value) {
     std::cout << test << std::endl;
 
     //NOTE: im not implementing rollback, because it should just work right, bounded waiting or some crap like that? UPDATE: WE MIGHT HAVE TO IMPLEMENT ROLLBACK
-    //TODO: The primary problem right now is that the _xbegin should return 0u which is 4294967295 for unsigned, however it returns 0
+    //TODO: The primary problem right now is that the _xbegin should return 429496729, but it returns 0
+    //https://github.com/andikleen/tsx-tools/blob/master/include/rtm.h -> if you look at this link, the possible return values are stated, 0 isn't one of them, no clue why this is happening
 
     while (!transaction_success) {
         unsigned status = _xbegin();
