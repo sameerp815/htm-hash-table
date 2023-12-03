@@ -7,6 +7,8 @@
 
 
 
+
+
 typedef struct HashItem {
     int key;
     int value;
@@ -21,6 +23,9 @@ typedef struct {
     int count;
 } HashTable;
 
+
+void insert(HashTable* table, int key, int value);
+
 int hashFunction(int key, int size) {
     return key % size;
 }
@@ -33,36 +38,22 @@ HashTable* createTable(int size) {
     return table;
 }
 
-void finsert(HashTable* table, int key, int value) {
 
 
-    //not - > using chaining to handle collisions
-    int index = hashFunction(key, table->size);
-    HashItem* item = (HashItem*)malloc(sizeof(HashItem));
-    item->key = key;
-    item->value = value;
-    item->next = NULL;
-
-    if (table->items[index] == NULL) {
-        table->items[index] = item;
-    } else {
-        item->next = table->items[index];
-        table->items[index] = item;
-    }
-    table->count++;
-}
-
-void sizeAgain(HashTable* table, int newSize) {
+void reSize(HashTable* table, int newSize) {
     HashTable* newTable = createTable(newSize);
+
+    // Rehash the items from the old table to the new table
     for (int i = 0; i < table->size; i++) {
         HashItem* item = table->items[i];
         while (item != NULL) {
-            finsert(newTable, item->key, item->value);
+            // Insert into the new table
+            insert(newTable, item->key, item->value);
             item = item->next;
         }
     }
 
-    // Free the old table's memory
+    // Free the old table's items
     for (int i = 0; i < table->size; i++) {
         HashItem* item = table->items[i];
         while (item != NULL) {
@@ -71,12 +62,17 @@ void sizeAgain(HashTable* table, int newSize) {
             free(temp);
         }
     }
-    free(table->items);
-    free(table);
 
-    // Update the table's properties to those of the new table
-    *table = *newTable;
+    // Free the old table's array and update the table's properties
+    free(table->items);
+    table->items = newTable->items;
+    table->size = newTable->size;
+    table->count = newTable->count;
+
+    // Free the new table structure only (not its items and array)
+    free(newTable);
 }
+
 
 
 
@@ -86,7 +82,7 @@ void insert(HashTable* table, int key, int value) {
     float loadFactor = (float)table->count / table->size;
     if (loadFactor > 0.7) {
         // Resize the table, e.g., double the size
-        sizeAgain(table, table->size * 2);
+        reSize(table, table->size * 2);
     }
 
 
@@ -200,11 +196,12 @@ void insertTrans(HashTable *table, int key, int value) {
 
 
     // Check load factor
-    // float loadFactor = (float)table->count / table->size;
-    // if (loadFactor > 0.7) {
-    //     // Resize the table, - >  double the size
-    //     sizeAgain(table, table->size * 2);
-    // }
+    float loadFactor = (float)table->count / table->size;
+    if (loadFactor > 0.7) {
+        // Resize the table, - >  double the size
+        reSize(table, table->size * 2);
+    }
+    std::cout << "resize works" << std::endl;
 
 
     int index = hashFunction(key, table->size);
@@ -225,6 +222,8 @@ void insertTrans(HashTable *table, int key, int value) {
         table->count++;
         success = true;
     } 
+
+    std::cout << "KINDA WORKED" << std::endl;
 
     if(!success) {
         //we need to fallback
