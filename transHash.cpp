@@ -2,6 +2,8 @@
 #include <iostream>
 #include <vector>
 #include <immintrin.h> 
+#include <pthread.h>
+#include <getopt.h>
 
 
 
@@ -31,7 +33,63 @@ HashTable* createTable(int size) {
     return table;
 }
 
+void finsert(HashTable* table, int key, int value) {
+
+
+    //not - > using chaining to handle collisions
+    int index = hashFunction(key, table->size);
+    HashItem* item = (HashItem*)malloc(sizeof(HashItem));
+    item->key = key;
+    item->value = value;
+    item->next = NULL;
+
+    if (table->items[index] == NULL) {
+        table->items[index] = item;
+    } else {
+        item->next = table->items[index];
+        table->items[index] = item;
+    }
+    table->count++;
+}
+
+void sizeAgain(HashTable* table, int newSize) {
+    HashTable* newTable = createTable(newSize);
+    for (int i = 0; i < table->size; i++) {
+        HashItem* item = table->items[i];
+        while (item != NULL) {
+            finsert(newTable, item->key, item->value);
+            item = item->next;
+        }
+    }
+
+    // Free the old table's memory
+    for (int i = 0; i < table->size; i++) {
+        HashItem* item = table->items[i];
+        while (item != NULL) {
+            HashItem* temp = item;
+            item = item->next;
+            free(temp);
+        }
+    }
+    free(table->items);
+    free(table);
+
+    // Update the table's properties to those of the new table
+    *table = *newTable;
+}
+
+
+
 void insert(HashTable* table, int key, int value) {
+
+    // Check load factor
+    float loadFactor = (float)table->count / table->size;
+    if (loadFactor > 0.7) {
+        // Resize the table, e.g., double the size
+        sizeAgain(table, table->size * 2);
+    }
+
+
     //not - > using chaining to handle collisions
     int index = hashFunction(key, table->size);
     HashItem* item = (HashItem*)malloc(sizeof(HashItem));
@@ -109,60 +167,150 @@ void freeTable(HashTable* table) {
 }
 
 
-//INSERTING WITH TRANSACTIONAL MEMORY
-void insertTrans(HashTable *table, int key, int value) {
-    bool transaction_success = false;
-    unsigned test = _XBEGIN_STARTED;
+// //INSERTING WITH TRANSACTIONAL MEMORY
+// void insertTrans(HashTable *table, int key, int value) {
+//     bool transaction_success = false;
+//     unsigned test = _XBEGIN_STARTED;
 
     
-    std::cout << test << std::endl;
+//     std::cout << test << std::endl;
 
-    //NOTE: im not implementing rollback, because it should just work right, bounded waiting or some crap like that? UPDATE: WE MIGHT HAVE TO IMPLEMENT ROLLBACK
-    //TODO: The primary problem right now is that the _xbegin should return 429496729, but it returns 0
-    //https://github.com/andikleen/tsx-tools/blob/master/include/rtm.h -> if you look at this link, the possible return values are stated, 0 isn't one of them, no clue why this is happening
+//     //NOTE: im not implementing rollback, because it should just work right, bounded waiting or some crap like that? UPDATE: WE MIGHT HAVE TO IMPLEMENT ROLLBACK
+//     //TODO: The primary problem right now is that the _xbegin should return 429496729, but it returns 0
+//     //https://github.com/andikleen/tsx-tools/blob/master/include/rtm.h -> if you look at this link, the possible return values are stated, 0 isn't one of them, no clue why this is happening
 
-    while (!transaction_success) {
-        unsigned status = _xbegin();
+//     while (!transaction_success) {
+//         unsigned status = _xbegin();
         
-        if (status == _XBEGIN_STARTED) {
-            //transactional region -> this is where you do the insert
-            transaction_success = true;
-             // this commits the transaction
-             _xend();
-        } else {
-            //transaction was aborted -> another thread is prolly doin shit, we should just retry, that seems like the best option
-            // std::cout << "ABORTING" << std::endl;
+//         if (status == _XBEGIN_STARTED) {
+//             //transactional region -> this is where you do the insert
+//             transaction_success = true;
+//              // this commits the transaction
+//              _xend();
+//         } else {
+//             //transaction was aborted -> another thread is prolly doin shit, we should just retry, that seems like the best option
+//             // std::cout << "ABORTING" << std::endl;
             
+//         }
+//     }
+    
+// }
+
+void insertTrans(HashTable *table, int key, int value) {
+
+
+    // Check load factor
+    // float loadFactor = (float)table->count / table->size;
+    // if (loadFactor > 0.7) {
+    //     // Resize the table, - >  double the size
+    //     sizeAgain(table, table->size * 2);
+    // }
+
+
+    int index = hashFunction(key, table->size);
+    HashItem* item = (HashItem*)malloc(sizeof(HashItem));
+    item->key = key;
+    item->value = value;
+    item->next = NULL;
+
+    bool success = false;
+
+    __transaction_atomic {
+        if (table->items[index] == NULL) {
+        table->items[index] = item;
+        } else {
+            item->next = table->items[index];
+            table->items[index] = item;
         }
+        table->count++;
+        success = true;
+    } 
+
+    if(!success) {
+        //we need to fallback
+        std::cout << "FALLBACK" << std::endl;
     }
+
+
     
 }
 
+HashTable* myTable = nullptr;
+
+void *tester_func(void *args) {
+    //do something
+    insertTrans(myTable, 1, 100);
+}
+
+static int size = 0;
+static int workers = 0;
 
 
 
 
 
-int main() {
-    HashTable* myTable = createTable(10);
+int main(int argc, char **argv) {
 
-    insert(myTable, 1, 100);
-    insert(myTable, 2, 200);
-    insert(myTable, 2, 300);
-    insert(myTable, 2, 400);
-    insertTrans(myTable, 3, 300);
+    int option;
+
+
+    static struct option long_options[] = {
+        {"size",    required_argument, 0, 's'},
+        {"workers",     required_argument, 0, 'w'},
+        {0, 0, 0, 0}
+    };
+
+    int option_index = 0;
+    
+    
+
+    //READ IN OPTIONS
+    while((option = getopt_long(argc, argv, "s:w:", long_options, &option_index)) != -1) {
+        switch (option) {
+            case 's':
+                size = atoi(optarg);
+                std::cout << size << std::endl;
+                break;
+            case 'w':
+                workers = atoi(optarg);
+                std::cout << workers << std::endl;
+                break;
+            default:
+                printf("Invalid option or missing argument\n");
+                break;
+        }
+    }
+
+
+
+    myTable = createTable(100);
+
+    int worker = 100;
+
+    pthread_t tid[worker];
+
+
+    for(int i = 0; i < worker; i++) {
+        int err = pthread_create(&tid[i], NULL, tester_func, nullptr);
+    }
+
+    for(int j = 0; j < worker; j++) {
+        int err = pthread_join(tid[j], nullptr);
+    }
 
     std::vector<int> foundValues;
-    searchAll(myTable, 2, foundValues);
+    searchAll(myTable, 1, foundValues);
     for (int value : foundValues) {
         std::cout << value << std::endl;
     }
 
+    std::cout << "Size: " << myTable->size << std::endl;
+    
     deleteItem(myTable, 2);
     deleteItem(myTable, 2);
     deleteItem(myTable, 2);
     std::cout << "Value for key 2 after deletion: " << search(myTable, 2) << std::endl;
-    std::cout << "Value for key 3 checking for insertTrans: " << search(myTable, 2) << std::endl;
+    std::cout << "Value for key 3 checking for insertTrans: " << search(myTable, 3) << std::endl;
 
     freeTable(myTable);
     return 0;
