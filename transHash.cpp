@@ -38,8 +38,6 @@ HashTable* createTable(int size) {
     return table;
 }
 
-
-
 void reSize(HashTable* table, int newSize) {
     HashTable* newTable = createTable(newSize);
 
