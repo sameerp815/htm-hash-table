@@ -11,6 +11,7 @@
 template <typename Value>
 class TransactionalHashTable
 {
+    static_assert(std::is_trivially_copyable<Value>::value, "Value must be trivially copyable");
     typedef struct HashItem
     {
         int key;

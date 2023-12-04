@@ -11,9 +11,9 @@ static int workers = 0;
 
 int main(int argc, char **argv)
 {
-    TransactionalHashTable<float> map;
+    TransactionalHashTable<std::string> map;
 
-    map.insert(100, 17.7);
+    map.insert(100, "help");
     std::cout << map.containsKey(100) << std::endl;
 }
 
