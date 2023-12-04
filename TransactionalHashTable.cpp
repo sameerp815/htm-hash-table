@@ -33,12 +33,17 @@ public:
         return size;
     }
 
+    size_t getCapacity() __transaction_atomic
+    {
+        return capacity;
+    }
+
     void insert(int key, Value value) __transaction_atomic
     {
 
         // Check load factor
         float loadFactor = (float)size / capacity;
-        if (loadFactor > 0.7)
+        if (loadFactor > 0.9)
         {
             // Resize the table, e.g., double the size
             reSize(capacity * 2);
@@ -218,6 +223,7 @@ private:
         free(items);
         // TODO: Need transaction?
         items = resizedItems;
+        capacity = newCapacity;
     }
 
     size_t capacity;

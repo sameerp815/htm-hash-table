@@ -8,12 +8,14 @@
 
 #define DEFAULT_SIZE 50
 
-template <typename Key, typename Value>
+
+
+template <typename Value>
 class HashTable
 {
     typedef struct HashItem
     {
-        Key key;
+        int key;
         Value value;
         struct HashItem *next;
     } HashItem;
@@ -32,7 +34,7 @@ public:
         return size;
     }
 
-    void insert(Key key, Value value)
+    void insert(int key, Value value)
     {
 
         // Check load factor
@@ -49,7 +51,7 @@ public:
         }
     }
 
-    Value search(Key key)
+    Value search(int key)
     {
         size_t index = hashFunction(key, capacity);
         HashItem *item = items[index];
@@ -65,7 +67,7 @@ public:
         return -1;
     }
 
-    bool deleteItem(Key key)
+    bool deleteItem(int key)
     {
         int index = hashFunction(key, capacity);
         HashItem *item = items[index];
@@ -96,13 +98,13 @@ public:
     }
 
 private:
-    std::hash<Key> hashMethod;
-    size_t hashFunction(Key key, size_t arraySize)
+    std::hash<int> hashMethod;
+    size_t hashFunction(int key, size_t arraySize)
     {
         return hashMethod(key) % arraySize;
     }
 
-    void searchAll(Key key, std::vector<int> &values)
+    void searchAll(int key, std::vector<int> &values)
     {
         int index = hashFunction(key, size);
         HashItem *item = items[index];
@@ -118,7 +120,7 @@ private:
         }
     }
 
-    bool insertItem(HashItem **tableItems, Key key, Value value, size_t tableSize)
+    bool insertItem(HashItem **tableItems, int key, Value value, size_t tableSize)
     {
         // not - > using chaining to handle collisions
         int index = hashFunction(key, tableSize);

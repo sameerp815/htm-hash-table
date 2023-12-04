@@ -4,29 +4,36 @@
 #include <immintrin.h>
 #include <pthread.h>
 #include <getopt.h>
-#include "TransactionalHashTable.cpp"
+#include "HashTable.cpp"
 #include <chrono>
 
+pthread_mutex_t mutex;
 
 static int size = 0;
 static int workers = 0;
 static int per = 0;
 
-TransactionalHashTable<int> map;
+HashTable<int> map;
 
 void *tester_func(void *args) {
     int id = *((int*)args); 
     //do something
 
     for(int i = 0; i < per; i++) {
+        pthread_mutex_lock(&mutex);
         int uniq = id * 1000000 + i;
         map.insert(uniq, 30);
+        pthread_mutex_unlock(&mutex);
     }
 }
 
 
 int main(int argc, char **argv)
 {
+
+    pthread_mutex_init(&mutex, nullptr);
+
+
     int option;
 
 

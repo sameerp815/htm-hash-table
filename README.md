@@ -1,3 +1,3 @@
 # htm-hash-table
 A hash table that uses hardware transactional memory
-g++ -mrtm -o tHash transHash.cpp
+g++ -fgnu-tm -o hashTable main.cpp TransactionalHashTable.cpp
